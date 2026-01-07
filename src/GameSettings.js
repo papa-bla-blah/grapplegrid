@@ -5,6 +5,12 @@ function GameSettings({ settings, onSettingsChange, onStartGame }) {
     onSettingsChange({ ...settings, [key]: value });
   };
 
+  const toggleAI = (playerIndex) => {
+    const newAI = [...settings.aiPlayers];
+    newAI[playerIndex] = !newAI[playerIndex];
+    onSettingsChange({ ...settings, aiPlayers: newAI });
+  };
+
   const presets = [
     { name: 'Tutorial (3x3)', gridSize: 3, budget: 20 },
     { name: 'Training (4x4)', gridSize: 4, budget: 35 },
@@ -22,7 +28,7 @@ function GameSettings({ settings, onSettingsChange, onStartGame }) {
           <input 
             type="number" 
             min="3" 
-            max="6" 
+            max="6"
             value={settings.gridSize}
             onChange={(e) => updateSetting('gridSize', parseInt(e.target.value))}
           />
@@ -44,10 +50,39 @@ function GameSettings({ settings, onSettingsChange, onStartGame }) {
           <input 
             type="number" 
             min="2" 
-            max="8" 
+            max="4" 
             value={settings.numPlayers}
             onChange={(e) => updateSetting('numPlayers', parseInt(e.target.value))}
           />
+        </div>
+
+        <div className="setting-group">
+          <label>Game Speed:</label>
+          <select 
+            value={settings.gameSpeed}
+            onChange={(e) => updateSetting('gameSpeed', e.target.value)}
+          >
+            <option value="slow">Slow</option>
+            <option value="normal">Normal</option>
+            <option value="fast">Fast</option>
+            <option value="instant">Instant</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="ai-controls">
+        <h3>AI Players:</h3>
+        <div className="ai-toggles">
+          {Array.from({ length: settings.numPlayers }, (_, i) => (
+            <label key={i} className="ai-toggle">
+              <input
+                type="checkbox"
+                checked={settings.aiPlayers[i] || false}
+                onChange={() => toggleAI(i)}
+              />
+              Player {i + 1} AI
+            </label>
+          ))}
         </div>
       </div>
 

@@ -1,0 +1,270 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import './App.css';
+import GameBoard from './GameBoard';
+import GameSettings from './GameSettings';
+import ScoreDisplay from './ScoreDisplay';
+import DataCollector from './DataCollector';
+
+function App() {
+  const [gameSettings, setGameSettings] = useState({
+    gridSize: 5,
+    budget: 50,
+    numPlayers: 2,
+    aiPlayers: [false, false, false, false], // Track which players are AI
+    gameSpeed: 'normal' // 'slow', 'normal', 'fast', 'instant'
+  });
+
+  const [gameState, setGameState] = useState('setup'); // setup, playing, scoring
+  const [currentPlayer, setCurrentPlayer] = useState(0);
+  const [playerGrids, setPlayerGrids] = useState([]);
+  const [scores, setScores] = useState([]);
+  const [gameResults, setGameResults] = useState([]);
+  const [scoreBreakdown, setScoreBreakdown] = useState(null);
+  const [rankedWinners, setRankedWinners] = useState([]);
+
+  // Initialize grids when settings change
+  const initializeGame = useCallback(() => {
+    const { gridSize, numPlayers } = gameSettings;
+    const newGrids = Array(numPlayers).fill(null).map(() => 
+      Array(gridSize).fill(null).map(() => Array(gridSize).fill(0))
+    );
+    setPlayerGrids(newGrids);
+    setGameState('setup');
+    setCurrentPlayer(0);
+    setScores([]);
+    setScoreBreakdown(null);
+    setRankedWinners([]);
+  }, [gameSettings]);
+
+  useEffect(() => {
+    initializeGame();
+  }, [initializeGame]);
+
+  // AI Placement Strategies
+  const aiStrategies = {
+    // Human-like: Random placement with slight preferences
+    human: (grid, budget, gridSize) => {
+      const remaining = budget - grid.flat().reduce((sum, val) => sum + val, 0);
+      const emptyCells = [];
+      
+      for (let row = 0; row < gridSize; row++) {
+        for (let col = 0; col < gridSize; col++) {
+          if (grid[row][col] === 0) {
+            emptyCells.push({ row, col });
+          }
+        }
+      }
+      
+      if (emptyCells.length === 0) return grid;
+      
+      // Randomly pick a cell
+      const cell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+      const { row, col } = cell;
+      
+      // Get valid values for this column
+      const columnValues = grid.map(r => r[col]);
+      const usedInColumn = new Set(columnValues.filter(v => v > 0));
+      const validValues = [1, 2, 3, 4, 5].filter(v => !usedInColumn.has(v));
+      
+      if (validValues.length === 0) {
+        grid[row][col] = 0;
+        return grid;
+      }
+      
+      // Pick a value that fits budget, with human-like distribution
+      // Humans tend to use more mid-range values
+      const weights = { 1: 0.1, 2: 0.2, 3: 0.3, 4: 0.25, 5: 0.15 };
+      const weightedValues = validValues.filter(v => v <= remaining);
+      
+      if (weightedValues.length === 0) {
+        grid[row][col] = 0;
+        return grid;
+      }
+      
+      let randomValue;
+      const rand = Math.random();
+      let cumulative = 0;
+      
+      for (const val of weightedValues) {
+        cumulative += weights[val];
+        if (rand <= cumulative) {
+          randomValue = val;
+          break;
+        }
+      }
+      
+      grid[row][col] = randomValue || weightedValues[0];
+      return grid;
+    },
+
+    // Aggressive: Try to maximize high-value placements
+    aggressive: (grid, budget, gridSize) => {
+      const remaining = budget - grid.flat().reduce((sum, val) => sum + val, 0);
+      const emptyCells = [];
+      
+      for (let row = 0; row < gridSize; row++) {
+        for (let col = 0; col < gridSize; col++) {
+          if (grid[row][col] === 0) {
+            emptyCells.push({ row, col });
+          }
+        }
+      }
+      
+      if (emptyCells.length === 0) return grid;
+      
+      // Pick random cell
+      const cell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+      const { row, col } = cell;
+      
+      // Get valid values
+      const columnValues = grid.map(r => r[col]);
+      const usedInColumn = new Set(columnValues.filter(v => v > 0));
+      const validValues = [1, 2, 3, 4, 5].filter(v => !usedInColumn.has(v) && v <= remaining);
+      
+      if (validValues.length === 0) {
+        grid[row][col] = 0;
+        return grid;
+      }
+      
+      // Always pick highest valid value
+      grid[row][col] = Math.max(...validValues);
+      return grid;
+    },
+
+    // Conservative: Spread budget evenly
+    conservative: (grid, budget, gridSize) => {
+      const remaining = budget - grid.flat().reduce((sum, val) => sum + val, 0);
+      const emptyCells = [];
+      
+      for (let row = 0; row < gridSize; row++) {
+        for (let col = 0; col < gridSize; col++) {
+          if (grid[row][col] === 0) {
+            emptyCells.push({ row, col });
+          }
+        }
+      }
+      
+      if (emptyCells.length === 0) return grid;
+      
+      const cell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+      const { row, col } = cell;
+      
+      const columnValues = grid.map(r => r[col]);
+      const usedInColumn = new Set(columnValues.filter(v => v > 0));
+      const validValues = [1, 2, 3, 4, 5].filter(v => !usedInColumn.has(v) && v <= remaining);
+      
+      if (validValues.length === 0) {
+        grid[row][col] = 0;
+        return grid;
+      }
+      
+      // Pick lowest valid value to spread budget
+      grid[row][col] = Math.min(...validValues);
+      return grid;
+    },
+
+    // Balanced: Mix of strategies
+    balanced: (grid, budget, gridSize) => {
+      const strategies = ['human', 'aggressive', 'conservative'];
+      const strategy = strategies[Math.floor(Math.random() * strategies.length)];
+      return aiStrategies[strategy](grid, budget, gridSize);
+    }
+  };
+
+  // Execute AI turn
+  const executeAITurn = useCallback((playerIndex) => {
+    const { budget, gridSize } = gameSettings;
+    let grid = JSON.parse(JSON.stringify(playerGrids[playerIndex]));
+    
+    // Pick random strategy for this AI
+    const strategies = ['human', 'aggressive', 'conservative', 'balanced'];
+    const strategy = strategies[Math.floor(Math.random() * strategies.length)];
+    
+    // Fill grid until budget exhausted
+    while (grid.flat().reduce((sum, val) => sum + val, 0) < budget) {
+      const oldSum = grid.flat().reduce((sum, val) => sum + val, 0);
+      grid = aiStrategies[strategy](grid, budget, gridSize);
+      const newSum = grid.flat().reduce((sum, val) => sum + val, 0);
+      
+      // If no progress, we're stuck (no valid moves)
+      if (newSum === oldSum) break;
+    }
+    
+    return grid;
+  }, [gameSettings, playerGrids, aiStrategies]);
+
+  // Auto-advance for AI players
+  useEffect(() => {
+    if (gameState === 'playing' && gameSettings.aiPlayers[currentPlayer]) {
+      const speeds = { slow: 2000, normal: 1000, fast: 300, instant: 0 };
+      const delay = speeds[gameSettings.gameSpeed] || 1000;
+      
+      setTimeout(() => {
+        const aiGrid = executeAITurn(currentPlayer);
+        const newGrids = [...playerGrids];
+        newGrids[currentPlayer] = aiGrid;
+        setPlayerGrids(newGrids);
+        
+        // Auto-advance to next player
+        setTimeout(() => {
+          finishPlayerSetup();
+        }, delay / 2);
+      }, delay);
+    }
+  }, [gameState, currentPlayer, gameSettings, playerGrids, executeAITurn]);
+
+  const calculateRemainingBudget = (playerIndex) => {
+    const grid = playerGrids[playerIndex];
+    const used = grid.flat().reduce((sum, val) => sum + val, 0);
+    return gameSettings.budget - used;
+  };
+
+  const isValidPlacement = (playerIndex, row, col, value) => {
+    // Check column constraint - each number 1-5 only once per column (0 can repeat)
+    if (value > 0) {
+      const column = playerGrids[playerIndex].map(r => r[col]);
+      if (column.includes(value) && playerGrids[playerIndex][row][col] !== value) {
+        return false;
+      }
+    }
+    
+    // Check budget
+    const currentValue = playerGrids[playerIndex][row][col];
+    const budgetChange = value - currentValue;
+    const remaining = calculateRemainingBudget(playerIndex);
+    
+    return remaining - budgetChange >= 0;
+  };
+
+  const updateCell = (playerIndex, row, col, value) => {
+    if (!isValidPlacement(playerIndex, row, col, value)) {
+      return false;
+    }
+
+    const newGrids = [...playerGrids];
+    newGrids[playerIndex][row][col] = value;
+    setPlayerGrids(newGrids);
+    return true;
+  };
+
+  const finishPlayerSetup = () => {
+    if (currentPlayer < gameSettings.numPlayers - 1) {
+      setCurrentPlayer(currentPlayer + 1);
+    } else {
+      setGameState('scoring');
+      calculateScores();
+    }
+  };
+
+  const calculateScores = () => {
+    const { gridSize, numPlayers } = gameSettings;
+    const playerScores = Array(numPlayers).fill(0);
+    const cellResults = [];
+    const breakdown = Array(numPlayers).fill(null).map(() => ({
+      wins: 0,
+      totalGap: 0,
+      totalScore: 0,
+      cellDetails: []
+    }));
+
+    // Compare each cell
