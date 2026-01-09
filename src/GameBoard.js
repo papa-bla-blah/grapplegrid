@@ -1,48 +1,71 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import RadialMenu from './RadialMenu';
 
 function GameBoard({ grid, gridSize, onCellUpdate, isValidPlacement }) {
-  const [selectedValue, setSelectedValue] = useState(0);
-  const [inputMode, setInputMode] = useState('click'); // click or keyboard
+  const [radialMenu, setRadialMenu] = useState(null);
+  const longPressTimer = useRef(null);
 
-  const handleCellClick = (row, col) => {
-    if (inputMode === 'click') {
-      // Cycle through values 0-5
+  const handleMouseDown = (e, row, col) => {
+    // Right click or long press for radial menu
+    if (e.button === 2) {
+      e.preventDefault();
+      showRadialMenu(e, row, col);
+      return;
+    }
+
+    // Left click - start long press timer
+    longPressTimer.current = setTimeout(() => {
+      showRadialMenu(e, row, col);
+    }, 500);
+  };
+
+  const handleMouseUp = (e, row, col) => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+
+    // If no radial menu, do quick click cycle
+    if (!radialMenu && e.button === 0) {
       const currentValue = grid[row][col];
       const nextValue = (currentValue + 1) % 6;
       
       if (isValidPlacement(row, col, nextValue)) {
         onCellUpdate(row, col, nextValue);
-      } else {
-        // Try to wrap to 0 if next value doesn't work
-        if (nextValue !== 0 && isValidPlacement(row, col, 0)) {
-          onCellUpdate(row, col, 0);
-        }
-      }
-    } else {
-      // Paint mode - use selected value
-      if (isValidPlacement(row, col, selectedValue)) {
-        onCellUpdate(row, col, selectedValue);
+      } else if (nextValue !== 0 && isValidPlacement(row, col, 0)) {
+        onCellUpdate(row, col, 0);
       }
     }
   };
 
-  const handleKeyPress = (e, row, col) => {
-    const key = e.key;
-    if (key >= '0' && key <= '5') {
-      const value = parseInt(key);
-      if (isValidPlacement(row, col, value)) {
-        onCellUpdate(row, col, value);
-      }
+  const handleContextMenu = (e) => {
+    e.preventDefault();
+  };
+
+  const showRadialMenu = (e, row, col) => {
+    setRadialMenu({
+      position: { x: e.clientX, y: e.clientY },
+      row,
+      col,
+      currentValue: grid[row][col]
+    });
+  };
+
+  const handleRadialSelect = (value) => {
+    if (radialMenu && isValidPlacement(radialMenu.row, radialMenu.col, value)) {
+      onCellUpdate(radialMenu.row, radialMenu.col, value);
     }
+    setRadialMenu(null);
+  };
+
+  const handleRadialClose = () => {
+    setRadialMenu(null);
   };
 
   const getCellClass = (row, col) => {
     const value = grid[row][col];
-    let className = 'grid-cell';
+    let className = 'grid-cell chrome-cell';
     if (value > 0) className += ' has-value';
-    if (!isValidPlacement(row, col, (value + 1) % 6) && inputMode === 'click') {
-      className += ' invalid-next';
-    }
     return className;
   };
 
@@ -54,46 +77,18 @@ function GameBoard({ grid, gridSize, onCellUpdate, isValidPlacement }) {
 
   return (
     <div className="game-board-container">
-      <div className="input-mode-selector">
-        <label>
-          <input 
-            type="radio" 
-            checked={inputMode === 'click'}
-            onChange={() => setInputMode('click')}
-          />
-          Click to Cycle
-        </label>
-        <label>
-          <input 
-            type="radio" 
-            checked={inputMode === 'paint'}
-            onChange={() => setInputMode('paint')}
-          />
-          Paint Mode
-        </label>
+      <div className="instructions">
+        <p><strong>Quick Click:</strong> Click to cycle 0→1→2→3→4→5</p>
+        <p><strong>Radial Menu:</strong> Right-click or long-press for radial dial</p>
+        <p><em>Column rule: 1-5 only once per column, 0 unlimited</em></p>
       </div>
-
-      {inputMode === 'paint' && (
-        <div className="value-selector">
-          {[0, 1, 2, 3, 4, 5].map(val => (
-            <button
-              key={val}
-              className={`value-btn ${selectedValue === val ? 'selected' : ''}`}
-              onClick={() => setSelectedValue(val)}
-            >
-              {val}
-            </button>
-          ))}
-        </div>
-      )}
 
       <div className="grid-wrapper">
         <div className="column-headers">
           {Array(gridSize).fill(0).map((_, col) => (
             <div key={col} className="column-header">
-              Col {col + 1}
               <div className="column-usage">
-                {getColumnUsage(col).join(', ') || 'Empty'}
+                Used: {getColumnUsage(col).join(', ') || 'none'}
               </div>
             </div>
           ))}
@@ -102,35 +97,42 @@ function GameBoard({ grid, gridSize, onCellUpdate, isValidPlacement }) {
         <div 
           className="game-board"
           style={{
-            gridTemplateColumns: `repeat(${gridSize}, 1fr)`
+            gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
+            gap: '4px'
           }}
+          onContextMenu={handleContextMenu}
         >
           {grid.map((row, rowIdx) => (
             row.map((cell, colIdx) => (
               <div
                 key={`${rowIdx}-${colIdx}`}
                 className={getCellClass(rowIdx, colIdx)}
-                onClick={() => handleCellClick(rowIdx, colIdx)}
-                onKeyPress={(e) => handleKeyPress(e, rowIdx, colIdx)}
-                tabIndex={0}
+                onMouseDown={(e) => handleMouseDown(e, rowIdx, colIdx)}
+                onMouseUp={(e) => handleMouseUp(e, rowIdx, colIdx)}
+                onTouchStart={(e) => {
+                  const touch = e.touches[0];
+                  const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY, button: 0 };
+                  handleMouseDown(fakeEvent, rowIdx, colIdx);
+                }}
+                onTouchEnd={(e) => {
+                  handleMouseUp({ button: 0 }, rowIdx, colIdx);
+                }}
               >
                 <div className="cell-value">{cell}</div>
-                <div className="cell-coords">{rowIdx},{colIdx}</div>
               </div>
             ))
           ))}
         </div>
       </div>
 
-      <div className="instructions">
-        <h4>Quick Input Methods:</h4>
-        <ul>
-          <li><strong>Click Mode:</strong> Click cells to cycle through 0-5</li>
-          <li><strong>Paint Mode:</strong> Select a value, then click cells to paint</li>
-          <li><strong>Keyboard:</strong> Focus a cell and press 0-5</li>
-        </ul>
-        <p><em>Column constraint: Each number 1-5 can only appear once per column (0 can repeat)</em></p>
-      </div>
+      {radialMenu && (
+        <RadialMenu
+          position={radialMenu.position}
+          currentValue={radialMenu.currentValue}
+          onSelect={handleRadialSelect}
+          onClose={handleRadialClose}
+        />
+      )}
     </div>
   );
 }
