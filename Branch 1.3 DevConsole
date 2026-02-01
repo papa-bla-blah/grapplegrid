@@ -1,0 +1,9 @@
+brach:
+elaborate Development console to 4 players each match in automated full control with adjustable settings.
+grid size and point budget 100% flexible
+score method adjustments feasible pregame and also postgame at score screen.
+multi page interface: 1.pregame design settings above
+2. 4 player setup screen. allocate point bank in 2D with tactical presets plus manual adjustment per board
+screen 3: score output page is 2D with math explained in text or chart format 
+4. final score screen is same score output shifted 3D presentation of 4 boards stacked. settings to tweak score math for revision testing
+numbarow is not yet a game for fun: needs timer clock countdown, Audio and visual suspense.
