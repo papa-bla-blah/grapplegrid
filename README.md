@@ -4,16 +4,13 @@ A React-based playtesting environment for GrappleGrid game design.
 
 ## Features
 
-- **Multiple Grid Sizes**: Test 3x3, 4x4, 5x5, or 6x6 grids
-- **Variable Budgets**: Adjust point budgets to test balance
-- **Multi-player Support**: Up to 8 players (sequential turns)
-- **Rapid Input Methods**:
-  - Click to cycle through values 0-5
-  - Paint mode: select value then paint cells
-  - Keyboard input: focus cell and press 0-5
-- **Column Constraints**: Each number 1-5 only once per column (0 can repeat)
-- **Gap-Squared Scoring**: Winner = highest value, score = (gap)²
-- **Data Collection**: Export game results to CSV/JSON for analysis
+- **Multiple Grid Sizes**: Testing "board" sizes input: "___x___" possible 3x3, 4x4, default is 5x5, 6x6 7x7 max sizegrids
+- **Variable Budgets**: Adjust "point budgets" as variable "bank$=" related to size board. 50 points default. 
+console variable=10-110 range to test balance
+- **Multi-player Support**: Up to 4 players (AI players, all controlled by console) 
+--number of games= sets=__ x match=__ = total game rounds
+- **
+
 
 ## Quick Start
 
@@ -21,7 +18,7 @@ A React-based playtesting environment for GrappleGrid game design.
 npm start
 ```
 
-Opens browser at http://localhost:3000
+
 
 ## Game Presets
 
@@ -33,20 +30,37 @@ Opens browser at http://localhost:3000
 ## How to Play
 
 1. **Setup**: Choose grid size, budget, and number of players
-2. **Placement Phase**: Each player secretly allocates points to grid
-   - Must use entire budget
+2. **Placement Phase**: Each player (simultaneous ) secretly allocates points to grid
+   - Must use entire point budget
    - Column constraint: 1-5 only once per column (0 can repeat)
-3. **Scoring**: Grids are compared cell-by-cell
-   - Highest value in each cell wins
-   - Score = (gap)² between winner and second place
+
+3. **ScoringLOGIC**: Grids are compared cell-by-cell
+   - methodolgies variable to choose one logic
+1. straight Highest value-lowest in each cell 
+2. highest value difference average of other players in square
+3. 
+4
+5
+  - Score = (gap)² between winner and second place
    - Ties = 0 points for everyone in that cell
 
-## Input Methods
+STRATEGY TACTICAL PRESETS: ai define behavior play style: adjust to score logic
+A) aggressive=
+B) balanced=
+C) conservative=
+D) defensive=
+E) human logical=
+F) human illogical
+G) variable: random a-f choice
 
-### Click to Cycle (Default)
-- Click any cell to cycle through values 0→1→2→3→4→5→0
-- Red border = next value violates column constraint
+ 
 
+- **Gap-Squared Scoring**: Winner = highest value, score = (gap)²
+
+
+
+
+input restrictions obey column constraints, points zerosum spending on total
 ### Paint Mode
 - Select a value (0-5) from the palette
 - Click cells to "paint" that value
