@@ -42,7 +42,14 @@ npm start
 4
 5
   - Score = (gap)² between winner and second place
-   - Ties = 0 points for everyone in that cell
+   optional multiplier:
+Gap Multipliers (Optional - 4+ Players):
+
+Gap ≥ 3:  points × 2.0
+Gap = 2:  points × 1.5
+Gap = 1:  points × 1.0 (no multiplier)
+
+- Ties = 0 points for everyone in that cell
 
 STRATEGY TACTICAL PRESETS: ai define behavior play style: adjust to score logic
 A) aggressive=
